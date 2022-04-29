@@ -16,6 +16,8 @@ class ButterflyDataset(object):
         self.image_size = image_size
         self.border = image_padding # this is the % of the image that we want to pad on each side
 
+        self.it_index = 0 # this index is used when iterating over the dataset using next()
+
         # try to build the dataset using existing files in the dataset folder
         if os.path.exists(self.dataset_path):
             self.filenames = self._get_img_names_in_dir(self.dataset_path)
@@ -24,7 +26,7 @@ class ButterflyDataset(object):
 
     def create_dataset(self, dataset_folder, num_images = None, seed=None):
         # get all the filenames in the dataset
-        filenames = [os.path.join(dataset_folder, f) for f in os.listdir(dataset_folder) if f.lower().endswith('.jpg')]
+        filenames = self._get_img_names_in_dir(dataset_folder)
 
         # shuffle the dataset so that the batches are different with each run
         if seed is not None:
@@ -104,10 +106,30 @@ class ButterflyDataset(object):
         # apply canny edge detection to create the lineart
         lineart = cv2.Canny(img, 100, 200)
 
+        # the lineart is white on black bg, but we want it to be black on white bg, so invert it
+        lineart = cv2.bitwise_not(lineart)
+
         # lastly convert the image to rgb, since we load it with OpenCV in BGR
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         return img, lineart
+
+    def save_to_folder(self, folder='butterflies'):
+        lineart_folder = os.path.join(folder, 'lineart')
+        processed_folder = os.path.join(folder, 'processed')
+
+        if not os.path.exists(lineart_folder):
+            os.makedirs(lineart_folder)
+        if not os.path.exists(processed_folder):
+            os.makedirs(processed_folder)
+
+        for i, filename in enumerate(self.filenames):
+            img = cv2.imread(filename)
+            img, lineart = self.preprocess_image(img)
+            cv2.imwrite(os.path.join(lineart_folder, f'{i}.jpg'), lineart)
+
+            # when we preprocess the image, we convert it to RGB, so we need to convert it back to BGR to save it with OpenCV
+            cv2.imwrite(os.path.join(processed_folder, f'{i}.jpg'), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
     def _get_image(self, path):
         # read the image
@@ -129,17 +151,18 @@ class ButterflyDataset(object):
         return imgs, linearts
 
     def __iter__(self):
+        self.it_index = 0
         return self
 
     def __next__(self):
         # get a batch of filenames
-        filename_batch = self.filenames[:self.batch_size]
+        filename_batch = self.filenames[self.it_index:self.it_index + self.batch_size]
 
         # if there are no more files to iterate over, stop iterating
-        if len(filename_batch) == 0:
+        if self.it_index >= len(self.filenames):
             raise StopIteration
-        else: # otherwise, get the iamges and remove the files from the list
-            self.filenames = self.filenames[self.batch_size:]
+        else:
+            self.it_index += self.batch_size
 
             # get the images and linearts for the images
             imgs, linearts = self._get_image_batch(filename_batch)
@@ -151,7 +174,7 @@ if __name__ == '__main__':
     dataset = ButterflyDataset(batch_size=4)
     # uncomment this if you want to create the dataset yourself, otherwise just use 'butterflies' from the google drive
     # dataset.create_dataset('10 reps', num_images=128)
-
+    dataset.save_to_folder()
     # display the images using a 2x2 grid
     for _ in range(2):
         imgs, linearts = next(dataset)
