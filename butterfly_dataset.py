@@ -114,6 +114,23 @@ class ButterflyDataset(object):
 
         return img, lineart
 
+    def save_to_folder(self, folder='butterflies'):
+        lineart_folder = os.path.join(folder, 'lineart')
+        processed_folder = os.path.join(folder, 'processed')
+
+        if not os.path.exists(lineart_folder):
+            os.makedirs(lineart_folder)
+        if not os.path.exists(processed_folder):
+            os.makedirs(processed_folder)
+
+        for i, filename in enumerate(self.filenames):
+            img = cv2.imread(filename)
+            img, lineart = self.preprocess_image(img)
+            cv2.imwrite(os.path.join(lineart_folder, f'{i}.jpg'), lineart)
+
+            # when we preprocess the image, we convert it to RGB, so we need to convert it back to BGR to save it with OpenCV
+            cv2.imwrite(os.path.join(processed_folder, f'{i}.jpg'), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+
     def _get_image(self, path):
         # read the image
         img = cv2.imread(path)
@@ -157,7 +174,7 @@ if __name__ == '__main__':
     dataset = ButterflyDataset(batch_size=4)
     # uncomment this if you want to create the dataset yourself, otherwise just use 'butterflies' from the google drive
     # dataset.create_dataset('10 reps', num_images=128)
-
+    dataset.save_to_folder()
     # display the images using a 2x2 grid
     for _ in range(2):
         imgs, linearts = next(dataset)
