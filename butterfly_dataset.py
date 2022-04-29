@@ -16,6 +16,8 @@ class ButterflyDataset(object):
         self.image_size = image_size
         self.border = image_padding # this is the % of the image that we want to pad on each side
 
+        self.it_index = 0 # this index is used when iterating over the dataset using next()
+
         # try to build the dataset using existing files in the dataset folder
         if os.path.exists(self.dataset_path):
             self.filenames = self._get_img_names_in_dir(self.dataset_path)
@@ -24,7 +26,7 @@ class ButterflyDataset(object):
 
     def create_dataset(self, dataset_folder, num_images = None, seed=None):
         # get all the filenames in the dataset
-        filenames = [os.path.join(dataset_folder, f) for f in os.listdir(dataset_folder) if f.lower().endswith('.jpg')]
+        filenames = self._get_img_names_in_dir(dataset_folder)
 
         # shuffle the dataset so that the batches are different with each run
         if seed is not None:
@@ -104,6 +106,9 @@ class ButterflyDataset(object):
         # apply canny edge detection to create the lineart
         lineart = cv2.Canny(img, 100, 200)
 
+        # the lineart is white on black bg, but we want it to be black on white bg, so invert it
+        lineart = cv2.bitwise_not(lineart)
+
         # lastly convert the image to rgb, since we load it with OpenCV in BGR
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -129,17 +134,18 @@ class ButterflyDataset(object):
         return imgs, linearts
 
     def __iter__(self):
+        self.it_index = 0
         return self
 
     def __next__(self):
         # get a batch of filenames
-        filename_batch = self.filenames[:self.batch_size]
+        filename_batch = self.filenames[self.it_index:self.it_index + self.batch_size]
 
         # if there are no more files to iterate over, stop iterating
-        if len(filename_batch) == 0:
+        if self.it_index >= len(self.filenames):
             raise StopIteration
-        else: # otherwise, get the iamges and remove the files from the list
-            self.filenames = self.filenames[self.batch_size:]
+        else:
+            self.it_index += self.batch_size
 
             # get the images and linearts for the images
             imgs, linearts = self._get_image_batch(filename_batch)
