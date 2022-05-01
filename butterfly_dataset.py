@@ -10,11 +10,12 @@ import numpy as np
 
 
 class ButterflyDataset(object):
-    def __init__(self, processed_image_path = 'butterflies', batch_size=32, image_size = 224, image_padding = .1):
+    def __init__(self, processed_image_path = 'butterflies', batch_size=32, image_size = 224, image_padding = .1, fill_lineart = False):
         self.dataset_path = processed_image_path
         self.batch_size = batch_size
         self.image_size = image_size
         self.border = image_padding # this is the % of the image that we want to pad on each side
+        self.fill_lineart = fill_lineart
 
         self.it_index = 0 # this index is used when iterating over the dataset using next()
 
@@ -109,12 +110,25 @@ class ButterflyDataset(object):
         # the lineart is white on black bg, but we want it to be black on white bg, so invert it
         lineart = cv2.bitwise_not(lineart)
 
-        # lastly convert the image to rgb, since we load it with OpenCV in BGR
+        # convert the image to rgb, since we load it with OpenCV in BGR
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # we've found out that GANs mostly just modify non-white parts of the image, so the results could be improved
+        #   by filling in the line art with gray pixels, so we still see the edge of the image, but the butterfly is not all white
+        if self.fill_lineart:
+            mask = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            mask[mask < 255] = 190
+            mask[lineart == 0] = 0
+            lineart = mask
 
         return img, lineart
 
     def save_to_folder(self, folder='butterflies'):
+        """Saves the preprocessed images to a folder named 'processed' and the lineart to a folder named 'lineart'.
+        By default, these folders are created in the 'butterflies' directory, so you would have '
+        butterflies/processed' and 'butterflies/lineart'. """
+
         lineart_folder = os.path.join(folder, 'lineart')
         processed_folder = os.path.join(folder, 'processed')
 
@@ -171,7 +185,7 @@ class ButterflyDataset(object):
 
 if __name__ == '__main__':
     # create the dataset
-    dataset = ButterflyDataset(batch_size=4)
+    dataset = ButterflyDataset(batch_size=4, fill_lineart=True)
     # uncomment this if you want to create the dataset yourself, otherwise just use 'butterflies' from the google drive
     # dataset.create_dataset('10 reps', num_images=128)
     dataset.save_to_folder()
@@ -184,9 +198,11 @@ if __name__ == '__main__':
             plt.axis('off')
         plt.show()
 
-        for j, linearts in enumerate(linearts):
+        for j, lineart in enumerate(linearts):
+
+            cv2.waitKey(0)
             plt.subplot(2, 2, j + 1)
-            plt.imshow(linearts, cmap='gray')
+            plt.imshow(lineart, cmap='gray', vmin=0, vmax=255)
             plt.axis('off')
         plt.show()
 
