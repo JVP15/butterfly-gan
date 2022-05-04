@@ -26,6 +26,7 @@ class ButterflyDataset(object):
             self.filenames = []
 
     def create_dataset(self, dataset_folder, num_images = None, seed=None):
+        # ideally, get the dataset from here: https://zenodo.org/record/4307612#.Ym2CrtrMKUk
         # get all the filenames in the dataset
         filenames = self._get_img_names_in_dir(dataset_folder)
 
@@ -118,7 +119,7 @@ class ButterflyDataset(object):
         if self.fill_lineart:
             mask = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-            mask[mask < 255] = 96
+            mask[mask < 255] = 200
             mask[lineart == 0] = 0
             lineart = mask
 
@@ -164,6 +165,10 @@ class ButterflyDataset(object):
             linearts.append(lineart)
         return imgs, linearts
 
+    def get_images(self):
+        """Returns all of the preprocessed and line art images in the dataset in the form: imgs: List, lineart: List"""
+        return self._get_image_batch(self.filenames)
+
     def __iter__(self):
         self.it_index = 0
         return self
@@ -185,10 +190,11 @@ class ButterflyDataset(object):
 
 if __name__ == '__main__':
     # create the dataset
-    dataset = ButterflyDataset(batch_size=4, fill_lineart=True)
+    dataset = ButterflyDataset(batch_size=4)
     # uncomment this if you want to create the dataset yourself, otherwise just use 'butterflies' from the google drive
-    # dataset.create_dataset('10 reps', num_images=128)
+    # dataset.create_dataset('10 reps')
     #dataset.save_to_folder()
+
     # display the images using a 2x2 grid
     for _ in range(2):
         imgs, linearts = next(dataset)
