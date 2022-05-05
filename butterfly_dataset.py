@@ -27,14 +27,13 @@ class ButterflyDataset(object):
             self.filenames = []
 
     def create_dataset(self, dataset_folder = '10 reps', num_images = None, seed=None):
-        from pixellib.instance import custom_segmentation
-
         """Download the dataset from here: https://zenodo.org/record/4307612#.Ym2CrtrMKUk and extract it to a
         folder named '10 reps'. This function will create a folder named 'butterflies' that contains some preprocessed
         images of butterflies on blank white backgrounds. NOTE: this function uses pixellib, which only supports
         TensorFlow 2.0.0 to 2.4.1, so you will need to use one of those versions. """
+        from pixellib.instance import custom_segmentation
 
-        # ideally, get the dataset from here:
+
         # get all the filenames in the dataset
         filenames = self._get_img_names_in_dir(dataset_folder)
 
@@ -199,23 +198,23 @@ class ButterflyDataset(object):
 
 if __name__ == '__main__':
     # create the dataset
-    dataset = ButterflyDataset(batch_size=2)
-    # uncomment this if you want to create the dataset yourself, otherwise just use 'butterflies' from the google drive
-    # dataset.create_dataset('10 reps')
-    #dataset.save_to_folder()
-    butterfly_imgs_and_linearts = dataset.get_images()
-    # display the images next to their line arts using a 2x2 grid in matplotlib
-    num_imgs = 3
-    imgs, linearts = butterfly_imgs_and_linearts[:num_imgs]
-    fig, axs = plt.subplots(num_imgs, 2)
-    for i, ax in enumerate(axs.flat):
-        if i % num_imgs == 0:
-            ax.imshow(imgs[i // num_imgs])
-        else:
-            ax.imshow(linearts[i // num_imgs], cmap='gray')
-        ax.axis('off')
-    plt.tight_layout()
-    plt.show()
+    dataset = ButterflyDataset(invert_lineart=False, image_size=256)
+    #dataset.create_dataset('10 reps')
+    dataset.save_to_folder()
+
+    # butterfly_imgs_and_linearts = dataset.get_images()
+    # # display the images next to their line arts using a 2x2 grid in matplotlib
+    # num_imgs = 3
+    # imgs, linearts = butterfly_imgs_and_linearts[:num_imgs]
+    # fig, axs = plt.subplots(num_imgs, 2)
+    # for i, ax in enumerate(axs.flat):
+    #     if i % num_imgs == 0:
+    #         ax.imshow(imgs[i // num_imgs])
+    #     else:
+    #         ax.imshow(linearts[i // num_imgs], cmap='gray')
+    #     ax.axis('off')
+    # plt.tight_layout()
+    # plt.show()
 
 
 
