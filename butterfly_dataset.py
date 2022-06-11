@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 import time
 
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ import numpy as np
 
 
 class ButterflyDataset(object):
-    def __init__(self, processed_image_path = 'butterflies', batch_size=32, image_size = 224, image_padding = .1, fill_lineart = False,
+    def __init__(self, processed_image_path = 'butterflies', batch_size=256, image_size = 224, image_padding = .1, fill_lineart = False,
                  invert_lineart = True):
         self.dataset_path = processed_image_path
         self.batch_size = batch_size
@@ -33,7 +34,6 @@ class ButterflyDataset(object):
         TensorFlow 2.0.0 to 2.4.1, so you will need to use one of those versions. """
         from pixellib.instance import custom_segmentation
 
-
         # get all the filenames in the dataset
         filenames = self._get_img_names_in_dir(dataset_folder)
 
@@ -46,41 +46,61 @@ class ButterflyDataset(object):
 
         # create a temporary directory to store the resized images
         tempdir = os.path.join(dataset_folder, 'temp')
-        os.makedirs(tempdir)
+        batchdir = os.path.join(tempdir, 'batch')
+        os.makedirs(tempdir, exist_ok=True)
+        os.makedirs(batchdir, exist_ok=True)
 
         # resize the images and save them to the temporary directory
         for i, filename in enumerate(filenames):
+            print(f'Resizing image {i} of {len(filenames)}\r', end='')
             img = cv2.imread(filename)
             img = cv2.resize(img, (0,0), fx=0.25, fy=0.25)
             # some of the butterfly images are flipped 90 degrees, so we have to rotate it
             img = self._correct_rotation(img)
             cv2.imwrite(os.path.join(tempdir, f'{i}.jpg'), img)
 
+        filenames = [f for f in os.listdir(tempdir) if f.lower().endswith('.jpg')]
+
+        print('\nSegmenting images')
         # use pixellib to segment the images
         seg = custom_segmentation()
-        seg.inferConfig(num_classes=2, class_names=["BG", "butterfly", "squirrel"]) # not sure why we need squirrel, but I think we do
+        seg.inferConfig(num_classes=2,
+                        class_names=["BG", "butterfly", "squirrel"])  # not sure why we need squirrel, but I think we do
         # you can find the model here: https://github.com/ayoolaolafenwa/PixelLib/releases
         seg.load_model("Nature_model_resnet101.h5")
 
-        segmasks, outputs = seg.segmentBatch(tempdir, extract_segmented_objects=True)
-        butterflies = [np.array(segmask['extracted_objects'][0], dtype=np.uint8) for segmask in segmasks]
+        # seperate the images into batches so that pixellib only processes a small number of images at a time
+        for i in range(0, len(filenames), self.batch_size):
+            print(f'Segmenting batch {i} of {len(filenames) // self.batch_size}\r', end='')
+            filename_batch = filenames[i:i+self.batch_size]
 
-        # create the dataset folder if it isn't already there
-        if not os.path.exists(self.dataset_path):
-            os.makedirs(self.dataset_path)
+            for filename in filename_batch:
+                src_filename = os.path.join(tempdir, filename)
+                dst_filename = os.path.join(batchdir, filename)
+                shutil.move(src_filename, dst_filename)
 
-        # convert the black background to a white background and save the images to the dataset folder
-        for i, butterfly in enumerate(butterflies):
-            butterfly[butterfly == 0] = 255
-            cv2.imwrite(os.path.join(self.dataset_path, f'butterfly{i}.jpg'), butterfly)
+            segmasks, outputs = seg.segmentBatch(tempdir, extract_segmented_objects=True)
+            butterflies = [np.array(segmask['extracted_objects'][0], dtype=np.uint8) for segmask in segmasks]
 
+            # create the dataset folder if it isn't already there
+            if not os.path.exists(self.dataset_path):
+                os.makedirs(self.dataset_path)
+
+            # convert the black background to a white background and save the images to the dataset folder
+            for i, butterfly in enumerate(butterflies):
+                butterfly[butterfly == 0] = 255
+                cv2.imwrite(os.path.join(self.dataset_path, f'butterfly{i}.jpg'), butterfly)
+
+            # remove all of the images in the batch folder
+            for filename in filename_batch:
+                os.remove(os.path.join(batchdir, filename))
+
+        print('\nSegmented Images')
         # create the list of filenames that we can draw on for the dataset
         self.filenames = self._get_img_names_in_dir(self.dataset_path)
 
         # clean up the temp directory
-        for f in os.listdir(tempdir):
-            os.remove(os.path.join(tempdir, f))
-        os.rmdir(tempdir)
+        shutil.rmtree(tempdir)
 
     def _get_img_names_in_dir(self, dir):
         return [os.path.join(dir, f) for f in os.listdir(dir) if f.lower().endswith('.jpg')]
@@ -113,11 +133,24 @@ class ButterflyDataset(object):
         img = cv2.resize(img, (self.image_size, self.image_size))
 
         # apply canny edge detection to create the lineart
-        lineart = cv2.Canny(img, 100, 200)
+        lineart = cv2.Canny(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 230, 250)
+
+        #lineart = cv2.threshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY_INV)[1]
+        # find the external contours of the lineart and then draw them on the on a black image
+        """Idea: find all contours from canny edge detection, but only keep, like, the the largest ones"""
+        contours, _ = cv2.findContours(lineart, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        num_contours = max(6, int(np.sqrt(len(sorted_contours))))
+
+        sorted_contours = sorted_contours[:num_contours]
+
+        lineart = np.zeros(lineart.shape, dtype=np.uint8)
+        cv2.drawContours(lineart, sorted_contours, -1, (255, 255, 255), 2)
 
         # the lineart is white on black bg, but normally we want it to be black on white bg, so invert it
-        if self.invert_lineart:
-            lineart = cv2.bitwise_not(lineart)
+        # if self.invert_lineart:
+        #     lineart = cv2.bitwise_not(lineart)
 
         # convert the image to rgb, since we load it with OpenCV in BGR
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -133,7 +166,7 @@ class ButterflyDataset(object):
 
         return img, lineart
 
-    def save_to_folder(self, folder='butterflies'):
+    def save_to_folder(self, folder='butterflies', new_img_size = None):
         """Saves the preprocessed images to a folder named 'processed' and the lineart to a folder named 'lineart'.
         By default, these folders are created in the 'butterflies' directory, so you would have '
         butterflies/processed' and 'butterflies/lineart'. """

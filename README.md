@@ -1,16 +1,55 @@
-# Butterfly Generator
+# Butterfly Colorization
 
-This project uses GANs to generate images of butterflies.
+This project uses GANs to color butterfly images. In `butterfly_color_notebook.ipynb`, we attempt to colorize grayscale butterfly images. In `butterly_pix2pix_notebook.ipynb`, we attempt to recreate the original butterfly image from the line art of that image. 
+
+## Installation
+
+Before running our code, you need to install the dependancies. You can do this by running:
+
+`pip install -r requirements.txt`
+
+If there are any errors with `pip`, you may try variants such as `pip3`, or `python3 -m pip` instead. Optionally, you could create an environment using `venv` or `conda` before running that command so that you have a fresh environment.
 
 ## Dataset
 
-We will collect our butterfly dataset using the code and techniques presented in this article: [https://marian42.de/article/butterflies/](https://marian42.de/article/butterflies/)
+We have provided a partially-preprocessed dataset for your convenience. The file `butterflies.zip` contains 128 preprocessed butterfly images. All you have to do to load the dataset is execute the command:
 
-[This subset of the dataset](https://data.nhm.ac.uk/dataset/56e711e6-c847-4f99-915a-6894bb5c5dea/resource/05ff2255-c38a-40c9-b657-4ccb55ab2feb?view_id=6ba121d1-da26-4ee1-81fa-7da11e68f68e&filters=project%3Apapilionoidea+new+types+digitisation+project) 
-contains ~1000 images of butterflies and will serve as a good start for this project.
+`unzip butterflies.zip`
 
-## Model
+We got our original dataset from [Representative images of Lepidoptera from the Natural History Museum](https://zenodo.org/record/4307612#.Ym2CrtrMKUk). We then applied some preprocessing steps in `butterfly_dataset.py`. If you want to recreate our steps exactly, you can download the dataset yourself and execute `python butterfly_dataset.py`. However, there are many known complications (see `ButterflyDataset.create_dataset()` for more info) when creating the dataset from scratch. For the sake of simplicity, just use the dataset in `butterflies.zip`. 
 
-This project uses a Generative Adversarial Network (GAN) to generate images of butterflies. Here is a [tutorial on how to create and train GANs using TensorFlow](https://www.tensorflow.org/tutorials/generative/dcgan).
+## Coloring Butterfly Images
 
-After we have a working prototype using the initial butterfly dataset and a simple GAN, we can investigate using a larger dataset and [StyleGans](https://github.com/NVlabs/stylegan).
+You can open the butterfly colorization notebook by running the command:
+
+`jupyterlab butterfly_color_notebook.ipynb`
+
+To run the program, click on the `Restart kernel and run all cells` button on the toolbar, or hit {CTRL} + {ENTER} on your keyboard to run all of the cells. Depending on your GPU, the notebook could take 1 hour or more to run. 
+
+## Using Pix2Pix to Convert Line Art to Butterflies
+
+You can open the line art to butterfly notebook by running the command:
+
+`jupyterlab butterfly_pix2pix_notebook.ipynb`
+
+To run the program, click on the `Restart kernel and run all cells` button on the toolbar, or hit {CTRL} + {ENTER} on your keyboard to run all of the cells. Depending on your GPU, the notebook could take 1 hour or more to run. 
+
+
+## References
+
+### Dataset / Preprocessing
+* https://zenodo.org/record/4307612#.Ynrx3fPMI1J
+* https://github.com/ayoolaolafenwa/PixelLib 
+
+### GAN 
+* https://www.tensorflow.org/tutorials/generative/dcgan
+ 
+### Colorization
+* https://www.youtube.com/watch?v=v88IUAsgfz0
+* https://github.com/OvaizAli/Image-Colorization-using-GANs
+
+### Line-art Interpolation 
+* https://phillipi.github.io/pix2pix/
+* https://www.tensorflow.org/tutorials/generative/pix2pix
+
+
